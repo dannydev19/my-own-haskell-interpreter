@@ -60,21 +60,28 @@ optimizeBody([]) = []
 
 optimizeExpr(Var name) = Var name
 optimizeExpr(CharLit char) = CharLit char
-optimizeExpr(NatLit int) = NatLit int
+optimizeExpr(NatLit nat) = NatLit nat
 optimizeExpr(GetChar) = GetChar
 optimizeExpr(Assign name expr) = Assign name (optimizeExpr(expr))
 
+
 optimizeExpr(Unary uop expr) = Unary uop (optimizeExpr(expr))
+
+optimizeExpr(Binary bop (Assign name assign_expr) expr) = Binary bop (Assign name assign_expr) (optimizeExpr(expr))
 
 optimizeExpr(Binary Or expr (NatLit 0)) = optimizeExpr(expr)
 optimizeExpr(Binary Or (NatLit 0) expr) = optimizeExpr(expr)
-optimizeExpr(Binary Or expr (NatLit int)) = NatLit int
-optimizeExpr(Binary Or (NatLit int) expr) = NatLit int
+optimizeExpr(Binary Or expr (NatLit nat)) = NatLit nat
+optimizeExpr(Binary Or (NatLit nat) expr) = NatLit nat
 
 optimizeExpr(Binary And expr (NatLit 0)) = NatLit 0
 optimizeExpr(Binary And (NatLit 0) expr) = NatLit 0
-optimizeExpr(Binary And expr (NatLit int)) = optimizeExpr(expr) 
-optimizeExpr(Binary And (NatLit int) expr) = optimizeExpr(expr)
+optimizeExpr(Binary And expr (NatLit nat)) = optimizeExpr(expr) 
+optimizeExpr(Binary And (NatLit nat) expr) = optimizeExpr(expr)
+optimizeExpr(Binary And (Binary Equ (Var fst_var) (NatLit fst_nat)) (Binary Equ (Var snd_var) (NatLit snd_nat))) =
+    Binary And (Binary Equ (Var fst_var) (NatLit fst_nat)) (Binary Equ (Var snd_var) (NatLit snd_nat))
+
+
 
 optimizeExpr(Binary Equ fst_expr snd_expr) =
     Binary Equ (optimizeExpr(fst_expr)) (optimizeExpr(snd_expr))
@@ -84,34 +91,46 @@ optimizeExpr(Binary Less fst_expr snd_expr) =
 
 optimizeExpr(Binary Plus expr (NatLit 0)) = optimizeExpr(expr)
 optimizeExpr(Binary Plus (NatLit 0) expr) = optimizeExpr(expr)
-optimizeExpr(Binary Plus (NatLit fst_int) (NatLit snd_int)) = NatLit (fst_int + snd_int)
+optimizeExpr(Binary Plus (NatLit fst_nat) (NatLit snd_nat)) = NatLit (fst_nat + snd_nat)
 
-optimizeExpr(Binary Minus expr (NatLit 0)) = optimizeExpr(expr)
-optimizeExpr(Binary Minus (NatLit 0) expr) = optimizeExpr(expr)
-optimizeExpr(Binary Minus (NatLit fst_int) (NatLit snd_int)) = NatLit (fst_int - snd_int)
+optimizeExpr(Binary Minus (NatLit fst_nat) (NatLit snd_nat)) = NatLit (fst_nat - snd_nat)
 
 optimizeExpr(Binary Mult expr (NatLit 1)) = optimizeExpr(expr)
 optimizeExpr(Binary Mult (NatLit 1) expr) = optimizeExpr(expr)
 optimizeExpr(Binary Mult expr (NatLit 0)) = NatLit 0
 optimizeExpr(Binary Mult (NatLit 0) expr) = NatLit 0
-optimizeExpr(Binary Mult (NatLit fst_int) (NatLit snd_int)) = NatLit (fst_int * snd_int)
+optimizeExpr(Binary Mult (NatLit fst_nat) (NatLit snd_nat)) = NatLit (fst_nat * snd_nat)
 
 optimizeExpr(Binary Div (NatLit fst_nat) (NatLit snd_nat)) = NatLit (fst_nat `div` snd_nat)
 
 optimizeExpr(Binary Mod (NatLit fst_nat) (NatLit snd_nat)) = NatLit (fst_nat `mod` snd_nat)
 
+optimizeExpr(Binary bop (Var var) (NatLit nat)) = Binary bop (Var var) (NatLit nat)
+optimizeExpr(Binary bop (NatLit nat) (Var var)) = Binary bop (NatLit nat) (Var var)
+
+optimizeExpr(Binary bop (Var fst_var) (Var snd_var)) = Binary bop (Var fst_var) (Var snd_var)
+
+optimizeExpr(Binary Plus (Binary Mult expr (NatLit 0)) (NatLit nat)) = NatLit nat
+optimizeExpr(Binary Plus (Binary Mult (NatLit 0) expr) (NatLit nat)) = NatLit nat
+optimizeExpr(Binary Plus (NatLit nat) (Binary Mult expr (NatLit 0))) = NatLit nat
+optimizeExpr(Binary Plus (NatLit nat) (Binary Mult (NatLit 0) expr)) = NatLit nat
+
+optimizeExpr(Binary Plus (Var var) (Binary Mult expr (NatLit 0))) = Var var
+
 optimizeExpr(Binary bop (Var var) expr) = Binary bop (Var var) (optimizeExpr(expr))
+
 optimizeExpr(Binary bop expr (Var var)) = Binary bop (optimizeExpr(expr)) (Var var)
 
+optimizeExpr(Binary bop expr (NatLit nat)) = Binary bop (optimizeExpr(expr)) (NatLit nat)
+
+optimizeExpr(Binary bop (NatLit nat) expr) = optimizeExpr(Binary bop (NatLit nat) (optimizeExpr(expr)))
+
 optimizeExpr(Binary bop fst_expr snd_expr) =
-    if and [not (exprContainsVar(fst_expr)), not (exprContainsVar(snd_expr))]
-        then optimizeExpr(Binary bop (optimizeExpr(fst_expr)) (optimizeExpr(snd_expr)))
-        else Binary bop (optimizeExpr(fst_expr)) (optimizeExpr(snd_expr))
-    
+    optimizeExpr(Binary bop (optimizeExpr(fst_expr)) (optimizeExpr(snd_expr)))
 
 
 valueOfExpr :: Expr -> Integer
-valueOfExpr(NatLit int) = int
+valueOfExpr(NatLit nat) = nat
 valueOfExpr(Unary Not expr) = 
     if ((valueOfExpr(expr)) /= 0)
         then 0
@@ -151,7 +170,7 @@ valueOfExpr(Binary Mod fst_expr snd_expr) =
 exprContainsVar :: Expr -> Bool
 exprContainsVar(Var name) = True
 exprContainsVar(CharLit char) = False
-exprContainsVar(NatLit int) = False
+exprContainsVar(NatLit nat) = False
 exprContainsVar(GetChar) = False
 exprContainsVar(Unary uop expr) = exprContainsVar(expr)
 exprContainsVar(Binary bop fst_expr snd_expr) = or [exprContainsVar(fst_expr), exprContainsVar(snd_expr)]

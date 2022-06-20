@@ -92,8 +92,8 @@ getTipo(Var name, env) =
 
 getTipo(Binary Or expr1 expr2, env) = TyInt
 getTipo(Binary And expr1 expr2, env) = TyInt
-getTipo(Binary Equ expr1 expr2, env) = getTipo(expr1, env)
-getTipo(Binary Less expr1 expr2, env) = getTipo(expr1, env)
+getTipo(Binary Equ expr1 expr2, env) = TyInt
+getTipo(Binary Less expr1 expr2, env) = TyInt
 getTipo(Binary Plus expr1 expr2, env) = TyInt
 getTipo(Binary Mult expr1 expr2, env) = TyInt
 getTipo(Binary Div expr1 expr2, env) = TyInt
@@ -104,7 +104,7 @@ getTipo(Unary uop expr, env) =
    getTipo(expr, env)
 
 getTipo(Assign name expr, env) =
-   getTipo(expr, env)
+   getTipoFromName name env
 
 getTipo(GetChar, env) = TyChar
 
@@ -131,10 +131,12 @@ checkBodyTipos ([], env) = []
 
 checkStmtTipos (StmtExpr expr, env) = checkExprTipos(expr, env)
 checkStmtTipos (If expr fst_body snd_body, env) = 
-   checkExprTipos (expr, env) ++ checkBodyTipos(fst_body, env) ++ checkBodyTipos(snd_body, env) 
+   if getTipo(expr, env) == TyChar
+      then checkExprTipos(expr, env) ++ [Expected TyInt TyChar] ++ checkBodyTipos(fst_body, env) ++ checkBodyTipos(snd_body, env)
+      else checkExprTipos(expr, env) ++ checkBodyTipos(fst_body, env) ++ checkBodyTipos(snd_body, env)
 checkStmtTipos (While expr body, env) = 
    if getTipo(expr, env) == TyChar
-      then [Expected TyInt TyChar] ++ checkExprTipos(expr, env) ++ checkBodyTipos(body, env)
+      then checkExprTipos(expr, env) ++ [Expected TyInt TyChar] ++ checkBodyTipos(body, env)
       else checkExprTipos(expr, env) ++ checkBodyTipos(body, env)
 checkStmtTipos (PutChar expr, env) = 
    if (getTipo(expr, env) == TyInt)
